@@ -24,26 +24,26 @@ const Chunk& ChunkManager::getChunk(const ChunkPosition& chunk)
     return itr->second;
 }
 
-voxel_t ChunkManager::getVoxel(const VoxelPosition& voxelPosition) const
+block_t ChunkManager::getBlock(const BlockPosition& blockPosition) const
 {
-    auto chunkPosition = toChunkPosition(voxelPosition);
+    auto chunkPosition = toChunkPosition(blockPosition);
     auto itr = m_chunks.find(chunkPosition);
     if (itr == m_chunks.cend()) {
         return 0;
     }
-    return itr->second.qGetVoxel(toLocalVoxelPosition(voxelPosition));
+    return itr->second.qGetBlock(toLocalBlockPosition(blockPosition));
 }
 
-void ChunkManager::setVoxel(const VoxelPosition& voxelPosition, voxel_t voxel)
+void ChunkManager::setBlock(const BlockPosition& blockPosition, block_t block)
 {
-    auto chunkPosition = toChunkPosition(voxelPosition);
+    auto chunkPosition = toChunkPosition(blockPosition);
     auto itr = m_chunks.find(chunkPosition);
-    auto local = toLocalVoxelPosition(voxelPosition);
+    auto local = toLocalBlockPosition(blockPosition);
     if (itr != m_chunks.cend()) {
-        itr->second.qSetVoxel(local, voxel);
+        itr->second.qSetBlock(local, block);
     }
     else {
-        addChunk(chunkPosition).qSetVoxel(local, voxel);
+        addChunk(chunkPosition).qSetBlock(local, block);
     }
     ensureNeighbours(chunkPosition);
 }

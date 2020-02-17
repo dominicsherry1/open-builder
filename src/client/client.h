@@ -4,7 +4,8 @@
 #include "gl/shader.h"
 #include "gl/textures.h"
 #include "gl/vertex_array.h"
-#include "gui/gui_master.h"
+#include "gui/gui.h"
+#include "gui/text.h"
 #include "maths.h"
 #include "world/chunk_mesh.h"
 #include <SFML/Network/Packet.hpp>
@@ -23,11 +24,10 @@
 #include "renderer/chunk_renderer.h"
 
 class Keyboard;
-class GuiText;
 
-struct VoxelUpdate {
-    VoxelPosition position;
-    voxel_t voxel = 0;
+struct BlockUpdate {
+    BlockPosition position;
+    block_t block = 0;
 };
 
 struct Entity final {
@@ -64,7 +64,7 @@ class Client final : public NetworkHost {
     // Network functions; defined in the src/client/network/client_command.cpp
     // directory
     void sendPlayerPosition(const glm::vec3& position);
-    void sendVoxelUpdate(const VoxelUpdate& update);
+    void sendBlockUpdate(const BlockUpdate& update);
     void sendPlayerSkin(const sf::Image& playerSkin);
 
     void onPeerConnect(ENetPeer* peer) override;
@@ -77,7 +77,7 @@ class Client final : public NetworkHost {
     void onSnapshot(sf::Packet& packet);
     void onChunkData(sf::Packet& packet);
     void onSpawnPoint(sf::Packet& packet);
-    void onVoxelUpdate(sf::Packet& packet);
+    void onBlockUpdate(sf::Packet& packet);
     void onPlayerSkinReceive(sf::Packet& packet);
 
     void onGameRegistryData(sf::Packet& packet);
@@ -122,8 +122,8 @@ class Client final : public NetworkHost {
     // Gameplay/ World
     std::array<Entity, 512> m_entities;
 
-    VoxelPosition m_currentSelectedVoxelPos;
-    bool m_voxelSelected = false;
+    BlockPosition m_currentSelectedBlockPos;
+    bool m_blockSelected = false;
 
     Entity* mp_player = nullptr;
     Entity m_externalCamera;
@@ -135,7 +135,7 @@ class Client final : public NetworkHost {
     struct {
         ChunkManager manager;
         std::vector<ChunkPosition> updates;
-        std::vector<VoxelUpdate> voxelUpdates;
+        std::vector<BlockUpdate> blockUpdates;
     } m_chunks;
 
     VoxelDataManager m_voxelData;
@@ -144,11 +144,12 @@ class Client final : public NetworkHost {
     ScriptEngine m_lua;
 
     // GUI
-    GuiMaster m_guiMaster;
-    GuiText* m_debugStatsText = nullptr;
+    Gui m_gui;
 
     // Debug stats stuff
     DebugStats m_debugStats{};
+    Text m_debugText;
+    Font m_debugTextFont;
     sf::Clock m_debugTextUpdateTimer;
     bool m_shouldRenderDebugInfo = false;
 
@@ -157,5 +158,5 @@ class Client final : public NetworkHost {
     bool m_isMouseLocked = false;
 
     unsigned m_noMeshingCount = 0;
-    bool m_voxelMeshing = false;
+    bool m_blockMeshing = false;
 };

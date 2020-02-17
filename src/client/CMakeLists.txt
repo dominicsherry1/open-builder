@@ -3,16 +3,11 @@ add_library(ob-client
     input/keyboard.cpp
     gl/vertex_array.cpp
     gl/shader.cpp
-    gl/textures.cpp  
+    gl/textures.cpp
     gl/gl_errors.cpp
     gl/primitive.cpp
-    gui/gui_master.cpp
-    gui/gui_container.cpp
-    gui/gui_rectangle.cpp
-    gui/gui_shader.cpp
-    gui/gui_text.cpp
-    gl/font.cpp
-    lua/gui_api.cpp
+    gui/gui.cpp
+    gui/text.cpp
     renderer/chunk_renderer.cpp
     network/client_commands.cpp
     client.cpp

@@ -10,11 +10,11 @@
 struct Biome {
     int id = 0;
     std::string name;
-    voxel_t topVoxel;
-    voxel_t undergroundVoxel;
+    block_t topVoxel;
+    block_t undergroundVoxel;
     int depth;
 
-    sol::function onTopVoxelSet;
+    sol::function onTopBlockSet;
 };
 
 class BiomeDataManager {

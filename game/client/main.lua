@@ -1,23 +1,29 @@
 
-local texCrosshair = game.gui.getTexture("res/crosshair.png")
-local hud = game.gui.makeGui()
 
-local crosshair = hud:addRect()
-crosshair.position = GuiDim.new(0.5, -16, 0.5, -16)
-crosshair.size = GuiDim.new(0, 32, 0, 32)
-crosshair.texture = texCrosshair
+-- Main crosshair (to be used in final)
+local crosshair = game.GUI.Image.new()
+crosshair:setSource("crosshair")
+crosshair:setScaledPosition(0.5, 0.5)
+crosshair:setPixelOffset(-16.0, -16.0)
+crosshair:setPixelSize(32.0, 32.0)
+crosshair:setColor(1, 1, 1)
+game.GUI.addImage(crosshair)
 
---local hotbar = hud:addRect()
---hotbar.position = GuiDim.new(0.25, 0, 0.01, 0)
---hotbar.size = GuiDim.new(0.5, 0, 0.1, 0)
+-- gui.lua
+
+---- This crosshair rotates around the main crosshair
+--local test = game.GUI.Image.new()
+--test:setSource("crosshair")
+--test:setPosition(game.GUI.GDim.new(0.5, -16, 0.5, -16))
+--test:setSize(game.GUI.GDim.new(0, 32, 0, 32))
+--test:setColor(game.GUI.Color3.new(0,0,0));
+--game.GUI.addImage(test)
 --
---local textTest = hud:addText()
---textTest.position = GuiDim.new(0.25, 0, 0.01, 0)
---textTest.size = 50
---textTest.text = "Hello world"
---
---
---local textTest2 = hud:addText()
---textTest2.position = GuiDim.new(0.25, 0, 0.21, 0)
---textTest2.size = 50
---textTest2.text = "Hello world"
+
+---- Spin and colour the crosshairs
+--local p = 0
+--function update(delta)
+--    f_crosshair:setColor(game.GUI.Color3.new(math.sin(p)/(math.pi/2) * 0.5 + 0.5, 0, 0));
+--	test:setPosition(game.GUI.GDim.new(0.5, -16 + math.sin(p)*50, 0.5, -16 + math.cos(p)*50))
+--	p = p + (delta * math.pi*2)
+--end

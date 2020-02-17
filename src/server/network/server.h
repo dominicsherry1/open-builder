@@ -27,9 +27,9 @@ struct ConnectedClient {
 };
 
 class Server final : public NetworkHost {
-    struct VoxelUpdate {
-        VoxelPosition position;
-        voxel_t voxel;
+    struct BlockUpdate {
+        BlockPosition position;
+        block_t block;
     };
 
   public:
@@ -50,7 +50,7 @@ class Server final : public NetworkHost {
     void onCommandRecieve(ENetPeer* peer, sf::Packet& packet, command_t command) override;
 
     void onPlayerPosition(sf::Packet& packet);
-    void onVoxelEdit(sf::Packet& packet);
+    void onBlockEdit(sf::Packet& packet);
     void onPlayerSkin(sf::Packet& packet);
 
     int findEmptySlot() const;
@@ -63,7 +63,7 @@ class Server final : public NetworkHost {
 
     struct {
         ChunkManager chunks;
-        std::vector<VoxelUpdate> voxelUpdates;
+        std::vector<BlockUpdate> blockUpdates;
     } m_world;
 
     bool m_isRunning = true;

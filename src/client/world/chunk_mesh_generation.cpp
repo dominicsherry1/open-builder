@@ -18,16 +18,16 @@ const MeshFace BOTTOM_FACE = {{0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1}, 2};
 const MeshFace CROSS_FACE_A = {{1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1}, 3};
 const MeshFace CROSS_FACE_B = {{1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0}, 4};
 
-bool makeFace(const VoxelDataManager& voxelData, voxel_t thisId, voxel_t compareId)
+bool makeFace(const VoxelDataManager& voxelData, block_t thisId, block_t compareId)
 {
-    voxel_t air = voxelData.getVoxelId(CommonVoxel::Air);
+    block_t air = voxelData.getVoxelId(CommonVoxel::Air);
 
-    auto& thisVoxel = voxelData.getVoxelData(thisId);
-    auto& compareVoxel = voxelData.getVoxelData(compareId);
+    auto& thisBlock = voxelData.getVoxelData(thisId);
+    auto& compareBlock = voxelData.getVoxelData(compareId);
     if (compareId == air) {
         return true;
     }
-    else if ((compareVoxel.type != VoxelType::Solid) && (compareId != thisId)) {
+    else if ((compareBlock.type != VoxelType::Solid) && (compareId != thisId)) {
         return true;
     }
     return false;
@@ -37,23 +37,21 @@ bool makeFace(const VoxelDataManager& voxelData, voxel_t thisId, voxel_t compare
 
 ChunkMeshCollection makeChunkMesh(const Chunk& chunk, const VoxelDataManager& voxelData)
 {
-    // sf::Clock clock;
-    // static int count = 0;
-    // static float totalTime = 0;
+    sf::Clock clock;
     ChunkMeshCollection meshes(chunk.getPosition());
 
     for (int y = 0; y < CHUNK_SIZE; y++) {
         for (int z = 0; z < CHUNK_SIZE; z++) {
             for (int x = 0; x < CHUNK_SIZE; x++) {
                 // If it is "not air"
-                VoxelPosition voxelPosition(x, y, z);
-                auto voxel = chunk.qGetVoxel(voxelPosition);
+                BlockPosition blockPosition(x, y, z);
+                auto voxel = chunk.qGetBlock(blockPosition);
                 if (voxel > 0) {
 
                     auto& voxData = voxelData.getVoxelData(voxel);
                     ChunkMesh* mesh = [&meshes, &voxData]() {
                         if (voxData.type == VoxelType::Solid) {
-                            return &meshes.voxelMesh;
+                            return &meshes.blockMesh;
                         }
                         else if (voxData.type == VoxelType::Flora) {
                             return &meshes.floraMesh;
@@ -65,48 +63,46 @@ ChunkMeshCollection makeChunkMesh(const Chunk& chunk, const VoxelDataManager& vo
                     }();
 
                     if (voxData.meshStyle == VoxelMeshStyle::Cross) {
-                        mesh->addFace(CROSS_FACE_A, voxelPosition, voxData.sideTextureId);
-                        mesh->addFace(CROSS_FACE_B, voxelPosition, voxData.sideTextureId);
+                        mesh->addFace(CROSS_FACE_A, blockPosition, voxData.sideTextureId);
+                        mesh->addFace(CROSS_FACE_B, blockPosition, voxData.sideTextureId);
                         continue;
                     }
 
-                    // Left voxel face
-                    if (makeFace(voxelData, voxel, chunk.getVoxel({x - 1, y, z}))) {
-                        mesh->addFace(LEFT_FACE, voxelPosition, voxData.sideTextureId);
+                    // Left block face
+                    if (makeFace(voxelData, voxel, chunk.getBlock({x - 1, y, z}))) {
+                        mesh->addFace(LEFT_FACE, blockPosition, voxData.sideTextureId);
                     }
 
                     // Right chunk face
-                    if (makeFace(voxelData, voxel, chunk.getVoxel({x + 1, y, z}))) {
-                        mesh->addFace(RIGHT_FACE, voxelPosition, voxData.sideTextureId);
+                    if (makeFace(voxelData, voxel, chunk.getBlock({x + 1, y, z}))) {
+                        mesh->addFace(RIGHT_FACE, blockPosition, voxData.sideTextureId);
                     }
 
                     // Front chunk face
-                    if (makeFace(voxelData, voxel, chunk.getVoxel({x, y, z + 1}))) {
-                        mesh->addFace(FRONT_FACE, voxelPosition, voxData.sideTextureId);
+                    if (makeFace(voxelData, voxel, chunk.getBlock({x, y, z + 1}))) {
+                        mesh->addFace(FRONT_FACE, blockPosition, voxData.sideTextureId);
                     }
 
                     // Back chunk face
-                    if (makeFace(voxelData, voxel, chunk.getVoxel({x, y, z - 1}))) {
-                        mesh->addFace(BACK_FACE, voxelPosition, voxData.sideTextureId);
+                    if (makeFace(voxelData, voxel, chunk.getBlock({x, y, z - 1}))) {
+                        mesh->addFace(BACK_FACE, blockPosition, voxData.sideTextureId);
                     }
 
                     // Bottom chunk face
-                    if (makeFace(voxelData, voxel, chunk.getVoxel({x, y - 1, z}))) {
-                        mesh->addFace(BOTTOM_FACE, voxelPosition,
+                    if (makeFace(voxelData, voxel, chunk.getBlock({x, y - 1, z}))) {
+                        mesh->addFace(BOTTOM_FACE, blockPosition,
                                       voxData.bottomTextureId);
                     }
 
                     // Top chunk face
-                    if (makeFace(voxelData, voxel, chunk.getVoxel({x, y + 1, z}))) {
-                        mesh->addFace(TOP_FACE, voxelPosition, voxData.topTextureId);
+                    if (makeFace(voxelData, voxel, chunk.getBlock({x, y + 1, z}))) {
+                        mesh->addFace(TOP_FACE, blockPosition, voxData.topTextureId);
                     }
                 }
             }
         }
     }
-    // totalTime += clock.getElapsedTime().asSeconds() * 1000.0f;
-    // if (count++ % 100 == 0) {
-    //    std::cout << count << ' ' << totalTime << ' ' << totalTime / count << '\n';
-    //}
+    // std::cout << clock.getElapsedTime().asMilliseconds() << std::endl;
+
     return meshes;
 }

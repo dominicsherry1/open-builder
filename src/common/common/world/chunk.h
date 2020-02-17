@@ -8,19 +8,23 @@
 
 class ChunkManager;
 
-using VoxelArray = std::array<voxel_t, CHUNK_VOLUME>;
+using BlockArray = std::array<block_t, CHUNK_VOLUME>;
+
+struct BlockData {
+    BlockArray blocks{0};
+};
 
 /**
- * @brief Compressed chunk voxel data
- * Contains a voxel, followed by how many voxels are exactly the same after
+ * @brief Compressed chunk block data
+ * Contains a block, followed by how many blocks are exactly the same after
  * it Eg a chunk like [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 3, 3, 3, 3,
  * 3, 3, 3, 2, 1] Would get compressed to: [0, 4, 1, 4, 0, 2, 1, 4, 3, 7, 2,
  * 1]
  */
-using CompressedVoxels = std::vector<std::pair<voxel_t, u16>>;
+using CompressedBlocks = std::vector<std::pair<block_t, u16>>;
 
 /**
- * @brief Data structure for a "chunk" of voxels of the game
+ * @brief Data structure for a "chunk" of blocks of the game
  *
  */
 class Chunk {
@@ -28,44 +32,44 @@ class Chunk {
     Chunk(ChunkManager& manager, const ChunkPosition& position);
 
     /**
-     * @brief Quick get voxel - Gets a voxel at the local voxel position without
+     * @brief Quick get block - Gets a block at the local block position without
      * any bounds checking (unsafe)
      *
-     * @param voxelPosition The position to get the voxel from
-     * @return voxel_t The voxel at the position
+     * @param blockPosition The position to get the block from
+     * @return block_t The block at the position
      */
-    voxel_t qGetVoxel(const VoxelPosition& voxelPosition) const;
+    block_t qGetBlock(const BlockPosition& blockPosition) const;
 
     /**
-     * @brief Quick set voxel - Sets a voxel at the local voxel position without
+     * @brief Quick set block - Sets a block at the local block position without
      * any bounds checking (unsafe)
      *
-     * @param voxelPosition The position to set the voxel from
-     * @param voxel The voxel to set
+     * @param blockPosition The position to set the block from
+     * @param block The block to set
      */
-    void qSetVoxel(const VoxelPosition& voxelPosition, voxel_t voxel);
+    void qSetBlock(const BlockPosition& blockPosition, block_t block);
 
     /**
-     * @brief Get the voxel at the position
+     * @brief Get the block at the position
      * This is a SAFE function, as in if you try to get an out-of-bounds voxel
      * it will return a neighbouring chunk's voxels
-     * @param voxelPosition The world position to get the voxel from
-     * @return voxel_t The voxel at this position
+     * @param blockPosition The world position to get the block from
+     * @return block_t The block at this position
      */
-    voxel_t getVoxel(const VoxelPosition& voxelPosition) const;
+    block_t getBlock(const BlockPosition& blockPosition) const;
 
     /**
-     * @brief Set the voxel at the position
+     * @brief Set the block at the position
      * This is a SAFE function, as in if you try to set an out-of-bounds voxel
      * it will return a neighbouring chunk's voxelsv
-     * @param voxelPosition The world position to get the voxel from
-     * @param voxel_t The voxel to set at this position
+     * @param blockPosition The world position to get the block from
+     * @param block_t The block to set at this position
      */
-    void setVoxel(const VoxelPosition& voxelPosition, voxel_t voxel);
+    void setBlock(const BlockPosition& blockPosition, block_t block);
 
     const ChunkPosition& getPosition() const;
 
-    VoxelArray voxels{0};
+    BlockArray blocks{0};
 
   private:
     ChunkManager& mp_manager;
@@ -73,16 +77,16 @@ class Chunk {
 };
 
 /**
- * @brief Compress the voxel data of some voxel data
+ * @brief Compress the block data of some block data
  *
- * @return CompressedVoxels The compressed voxel data [See:
- * CompressedVoxels]
+ * @return CompressedBlocks The compressed block data [See:
+ * CompressedBlocks]
  */
-CompressedVoxels compressVoxelData(const VoxelArray& voxels);
+CompressedBlocks compressBlockData(const BlockArray& blocks);
 
 /**
- * @brief Uncompress voxel data into this chunk
+ * @brief Uncompress block data into this chunk
  *
- * @param voxels The compressed voxel data [See: CompressedVoxels]
+ * @param blocks The compressed block data [See: CompressedBlocks]
  */
-VoxelArray decompressVoxelData(const CompressedVoxels& voxels);
+BlockArray decompressBlockData(const CompressedBlocks& blocks);

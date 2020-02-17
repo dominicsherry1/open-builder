@@ -1,16 +1,7 @@
 #include "chunk.h"
 #include "chunk_manager.h"
 
-namespace {
-// clang-format off
-    bool voxelPositionOutOfChunkBounds(const VoxelPosition& voxelPosition) {
-        return 
-        voxelPosition.x < 0 || voxelPosition.x >= CHUNK_SIZE ||
-        voxelPosition.y < 0 || voxelPosition.y >= CHUNK_SIZE ||
-        voxelPosition.z < 0 || voxelPosition.z >= CHUNK_SIZE;
-    }
-// clang-format on
-} // namespace
+// TODO Replace the .at with operator[] (when can be sure its safe to do so)
 
 Chunk::Chunk(ChunkManager& manager, const ChunkPosition& position)
     : mp_manager(manager)
@@ -18,72 +9,77 @@ Chunk::Chunk(ChunkManager& manager, const ChunkPosition& position)
 {
 }
 
-voxel_t Chunk::qGetVoxel(const VoxelPosition& voxelPosition) const
+block_t Chunk::qGetBlock(const BlockPosition& blockPosition) const
 {
-    assert(!voxelPositionOutOfChunkBounds(voxelPosition));
-    return voxels[toLocalVoxelIndex(voxelPosition)];
+    return blocks.at(toLocalBlockIndex(blockPosition));
 }
 
-void Chunk::qSetVoxel(const VoxelPosition& voxelPosition, voxel_t voxel)
+void Chunk::qSetBlock(const BlockPosition& blockPosition, block_t block)
 {
-    assert(!voxelPositionOutOfChunkBounds(voxelPosition));
-    voxels[toLocalVoxelIndex(voxelPosition)] = voxel;
+    blocks.at(toLocalBlockIndex(blockPosition)) = block;
 }
 
-voxel_t Chunk::getVoxel(const VoxelPosition& voxelPosition) const
+// clang-format off
+block_t Chunk::getBlock(const BlockPosition& blockPosition) const
 {
-    if (voxelPositionOutOfChunkBounds(voxelPosition)) {
-        return mp_manager.getVoxel(toGlobalVoxelPosition(voxelPosition, m_position));
+    if (blockPosition.x < 0 || blockPosition.x >= CHUNK_SIZE ||
+        blockPosition.y < 0 || blockPosition.y >= CHUNK_SIZE ||
+        blockPosition.z < 0 || blockPosition.z >= CHUNK_SIZE) {
+        return mp_manager.getBlock(
+            toGlobalBlockPosition(blockPosition, m_position));
     }
-    return qGetVoxel(voxelPosition);
+    return qGetBlock(blockPosition);
 }
 
-void Chunk::setVoxel(const VoxelPosition& voxelPosition, voxel_t voxel)
+void Chunk::setBlock(const BlockPosition& blockPosition, block_t block)
 {
-    if (voxelPositionOutOfChunkBounds(voxelPosition)) {
-        return mp_manager.setVoxel(toGlobalVoxelPosition(voxelPosition, m_position),
-                                   voxel);
+    if (blockPosition.x < 0 || blockPosition.x >= CHUNK_SIZE ||
+        blockPosition.y < 0 || blockPosition.y >= CHUNK_SIZE ||
+        blockPosition.z < 0 || blockPosition.z >= CHUNK_SIZE) {
+        return mp_manager.setBlock(
+            toGlobalBlockPosition(blockPosition, m_position), block);
     }
-    qSetVoxel(voxelPosition, voxel);
+    qSetBlock(blockPosition, block);
 }
+// clang-format on
 
 const ChunkPosition& Chunk::getPosition() const
 {
     return m_position;
 }
 
-CompressedVoxels compressVoxelData(const VoxelArray& voxels)
+CompressedBlocks compressBlockData(const BlockArray& blocks)
 {
-    CompressedVoxels compressed;
-    voxel_t currentVoxel = voxels[0];
-    u32 voxelCount = 1;
+    CompressedBlocks compressed;
+    block_t currentBlock = blocks[0];
+    u32 blockCount = 1;
 
-    for (unsigned i = 1; i < voxels.size(); i++) {
-        auto voxel = voxels[i];
-        if (voxel == currentVoxel) {
-            voxelCount++;
+    for (unsigned i = 1; i < blocks.size(); i++) {
+        auto block = blocks[i];
+        if (block == currentBlock) {
+            blockCount++;
         }
         else {
-            compressed.emplace_back(currentVoxel, voxelCount);
-            currentVoxel = voxels[i];
-            voxelCount = 1;
+            compressed.emplace_back(currentBlock, blockCount);
+            currentBlock = blocks[i];
+            blockCount = 1;
         }
     }
-    compressed.emplace_back(currentVoxel, voxelCount);
+    compressed.emplace_back(currentBlock, blockCount);
     return compressed;
 }
 
-VoxelArray decompressVoxelData(const CompressedVoxels& voxels)
+BlockArray decompressBlockData(const CompressedBlocks& blocks)
 {
-    VoxelArray voxelData;
-    int voxelPointer = 0;
-    for (auto& voxel : voxels) {
-        auto type = voxel.first;
-        auto count = voxel.second;
+    BlockArray blockData;
+    int blockPointer = 0;
+    for (auto& block : blocks) {
+        auto type = block.first;
+        auto count = block.second;
 
         for (u16 i = 0; i < count; i++) {
-            voxelData[voxelPointer++] = type;
+            blockData[blockPointer++] = type;
         }
     }
-    return voxelData;
+    return blockData;
 }

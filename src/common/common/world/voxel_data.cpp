@@ -17,15 +17,15 @@ void VoxelDataManager::initCommonVoxelTypes()
     m_commonVoxels[(u8)CommonVoxel::Water] = getVoxelId("openbuilder_water");
 }
 
-voxel_t VoxelDataManager::addVoxelData(const VoxelData& voxel)
+block_t VoxelDataManager::addVoxelData(const VoxelData& voxel)
 {
     m_voxelMap.emplace(voxel.name, m_voxels.size());
     auto& data = m_voxels.emplace_back(voxel);
-    data.id = static_cast<voxel_t>(m_voxels.size() - 1);
+    data.id = static_cast<block_t>(m_voxels.size() - 1);
     return data.id;
 }
 
-const VoxelData& VoxelDataManager::getVoxelData(voxel_t id) const
+const VoxelData& VoxelDataManager::getVoxelData(block_t id) const
 {
     return m_voxels.at(id);
 }
@@ -35,13 +35,13 @@ const VoxelData& VoxelDataManager::getVoxelData(const std::string& name) const
     return m_voxels.at(getVoxelId(name));
 }
 
-voxel_t VoxelDataManager::getVoxelId(CommonVoxel commonVoxel) const
+block_t VoxelDataManager::getVoxelId(CommonVoxel commonVoxel) const
 {
     // TODO Change to operator[] once can be sure it is working
     return m_commonVoxels.at((u8)commonVoxel);
 }
 
-voxel_t VoxelDataManager::getVoxelId(const std::string& name) const
+block_t VoxelDataManager::getVoxelId(const std::string& name) const
 {
     return m_voxelMap.at(name);
 }

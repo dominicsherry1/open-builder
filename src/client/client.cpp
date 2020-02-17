@@ -3,7 +3,6 @@
 #include "gl/gl_errors.h"
 #include "gl/primitive.h"
 #include "input/keyboard.h"
-#include "lua/client_lua_api.h"
 #include "world/chunk_mesh_generation.h"
 #include <SFML/Window/Mouse.hpp>
 #include <common/debug.h>
@@ -24,10 +23,10 @@ bool isVoxelSelectable(VoxelType voxelType)
 
 Client::Client(const ClientConfig& config)
     : NetworkHost("Client")
-    , m_guiMaster(config.windowWidth, config.windowHeight)
+    , m_gui(config.windowWidth, config.windowHeight)
 {
     // clang-format off
-    m_commandDispatcher.addCommand(ClientCommand::VoxelUpdate, &Client::onVoxelUpdate);
+    m_commandDispatcher.addCommand(ClientCommand::BlockUpdate, &Client::onBlockUpdate);
     m_commandDispatcher.addCommand(ClientCommand::ChunkData, &Client::onChunkData);
     m_commandDispatcher.addCommand(ClientCommand::GameRegistryData, &Client::onGameRegistryData);
     m_commandDispatcher.addCommand(ClientCommand::PlayerJoin, &Client::onPlayerJoin);
@@ -37,7 +36,8 @@ Client::Client(const ClientConfig& config)
     m_commandDispatcher.addCommand(ClientCommand::NewPlayerSkin, &Client::onPlayerSkinReceive);
     // clang-format on
 
-    initGuiApi(m_lua, m_guiMaster);
+    auto gui = createGuiApi(m_lua);
+    gui["addImage"] = [&](const sol::userdata& image) { m_gui.addImage(image); };
 
     m_lua.runLuaFile("game/client/main.lua");
 }
@@ -67,7 +67,7 @@ bool Client::init(const ClientConfig& config, float aspect)
         m_basicShader.program.getUniformLocation("projectionViewMatrix");
 
     // Texture for the player model
-    m_errorSkinTexture.create("res/skins/error.png");
+    m_errorSkinTexture.create("skins/error");
     m_errorSkinTexture.bind();
 
     m_texturePack = config.texturePack;
@@ -88,10 +88,12 @@ bool Client::init(const ClientConfig& config, float aspect)
 
     m_projectionMatrix = glm::perspective(3.14f / 2.0f, aspect, 0.01f, 2000.0f);
 
-    auto container = m_guiMaster.addGui();
-    m_debugStatsText = container->addText();
-    m_debugStatsText->setFontSize(16);
-    m_debugStatsText->setPosition({0.0f, 4.0f, 1.0f, -16.0f});
+    // Font and text
+    m_debugTextFont.init("res/VeraMono-Bold.ttf", 512);
+    m_debugText.setPosition({2, config.windowHeight - 16, 0});
+    m_debugText.setCharSize(16);
+    m_debugText.setFont(m_debugTextFont);
+    m_debugText.setText("Current FPS: 60");
     return true;
 }
 
@@ -155,31 +157,31 @@ void Client::handleInput(const sf::Window& window, const Keyboard& keyboard)
 void Client::onMouseRelease(sf::Mouse::Button button, [[maybe_unused]] int x,
                             [[maybe_unused]] int y)
 {
-    // Handle voxel removal/ voxel placing events
+    // Handle block removal/ block placing events
 
-    auto voxels =
-        getIntersectedVoxels(mp_player->position, forwardsVector(mp_player->rotation), 8);
+    auto blocks =
+        getIntersectedBlocks(mp_player->position, forwardsVector(mp_player->rotation), 8);
 
-    VoxelPosition& previous = voxels.at(0);
-    for (auto& position : voxels) {
-        auto& voxel = m_voxelData.getVoxelData(m_chunks.manager.getVoxel(position));
+    BlockPosition& previous = blocks.at(0);
+    for (auto& position : blocks) {
+        auto& voxel = m_voxelData.getVoxelData(m_chunks.manager.getBlock(position));
 
         if (isVoxelSelectable(voxel.type)) {
-            VoxelUpdate voxelUpdate;
-            voxelUpdate.voxel = button == sf::Mouse::Left ? 0 : 1;
+            BlockUpdate blockUpdate;
+            blockUpdate.block = button == sf::Mouse::Left ? 0 : 1;
             if (button == sf::Mouse::Left) {
-                voxelUpdate.position = position;
+                blockUpdate.position = position;
             }
-            else if (previous == toVoxelPosition(mp_player->position)) {
-                // prevents players from replacing voxels they're inside of
+            else if (previous == toBlockPosition(mp_player->position)) {
+                // prevents players from replacing blocks they're inside of
                 break;
             }
             else {
-                voxelUpdate.position = previous;
+                blockUpdate.position = previous;
             }
-            voxelUpdate.position = button == sf::Mouse::Left ? position : previous;
-            m_chunks.voxelUpdates.push_back(voxelUpdate);
-            sendVoxelUpdate(voxelUpdate);
+            blockUpdate.position = button == sf::Mouse::Left ? position : previous;
+            m_chunks.blockUpdates.push_back(blockUpdate);
+            sendBlockUpdate(blockUpdate);
             break;
         }
         previous = position;
@@ -233,37 +235,37 @@ void Client::update(float dt, float frameTime)
 
     sendPlayerPosition(mp_player->position);
 
-    // Update voxels
-    for (auto& voxelUpdate : m_chunks.voxelUpdates) {
-        auto chunkPosition = toChunkPosition(voxelUpdate.position);
+    // Update blocks
+    for (auto& blockUpdate : m_chunks.blockUpdates) {
+        auto chunkPosition = toChunkPosition(blockUpdate.position);
         m_chunks.manager.ensureNeighbours(chunkPosition);
-        m_chunks.manager.setVoxel(voxelUpdate.position, voxelUpdate.voxel);
+        m_chunks.manager.setBlock(blockUpdate.position, blockUpdate.block);
         m_chunks.updates.push_back(chunkPosition);
 
         auto p = chunkPosition;
-        auto localVoxelPostion = toLocalVoxelPosition(voxelUpdate.position);
-        if (localVoxelPostion.x == 0) {
+        auto localBlockPostion = toLocalBlockPosition(blockUpdate.position);
+        if (localBlockPostion.x == 0) {
             m_chunks.updates.push_back({p.x - 1, p.y, p.z});
         }
-        else if (localVoxelPostion.x == CHUNK_SIZE - 1) {
+        else if (localBlockPostion.x == CHUNK_SIZE - 1) {
             m_chunks.updates.push_back({p.x + 1, p.y, p.z});
         }
 
-        if (localVoxelPostion.y == 0) {
+        if (localBlockPostion.y == 0) {
             m_chunks.updates.push_back({p.x, p.y - 1, p.z});
         }
-        else if (localVoxelPostion.y == CHUNK_SIZE - 1) {
+        else if (localBlockPostion.y == CHUNK_SIZE - 1) {
             m_chunks.updates.push_back({p.x, p.y + 1, p.z});
         }
 
-        if (localVoxelPostion.z == 0) {
+        if (localBlockPostion.z == 0) {
             m_chunks.updates.push_back({p.x, p.y, p.z - 1});
         }
-        else if (localVoxelPostion.z == CHUNK_SIZE - 1) {
+        else if (localBlockPostion.z == CHUNK_SIZE - 1) {
             m_chunks.updates.push_back({p.x, p.y, p.z + 1});
         }
     }
-    m_chunks.voxelUpdates.clear();
+    m_chunks.blockUpdates.clear();
 
     auto playerChunk = worldToChunkPosition(mp_player->position);
     auto distanceToPlayer = [&playerChunk](const ChunkPosition& chunkPosition) {
@@ -295,12 +297,12 @@ void Client::update(float dt, float frameTime)
         }
 
         if (m_noMeshingCount != m_chunks.updates.size()) {
-            m_voxelMeshing = false;
+            m_blockMeshing = false;
         }
 
         // Find first "meshable" chunk
         int count = 0;
-        if (!m_voxelMeshing) {
+        if (!m_blockMeshing) {
             m_noMeshingCount = 0;
             for (auto itr = m_chunks.updates.cbegin(); itr != m_chunks.updates.cend();) {
                 if (m_chunks.manager.hasNeighbours(*itr)) {
@@ -324,23 +326,30 @@ void Client::update(float dt, float frameTime)
                 }
             }
             if (m_noMeshingCount == m_chunks.updates.size()) {
-                m_voxelMeshing = true;
+                m_blockMeshing = true;
             }
         }
     }
 
-    // Determine if a player is selecting a voxel & if so, which
-    m_voxelSelected = false;
-    auto voxels =
-        getIntersectedVoxels(mp_player->position, forwardsVector(mp_player->rotation), 8);
-    for (auto& position : voxels) {
-        auto& voxel = m_voxelData.getVoxelData(m_chunks.manager.getVoxel(position));
+    // Determine if a player is selecting a block & if so, which
+    m_blockSelected = false;
+    auto blocks =
+        getIntersectedBlocks(mp_player->position, forwardsVector(mp_player->rotation), 8);
+    for (auto& position : blocks) {
+        auto& voxel = m_voxelData.getVoxelData(m_chunks.manager.getBlock(position));
         if (isVoxelSelectable(voxel.type)) {
-            m_currentSelectedVoxelPos = position;
-            m_voxelSelected = true;
+            m_currentSelectedBlockPos = position;
+            m_blockSelected = true;
             break;
         }
     }
+
+    // Call update function on the GUI script
+    // Note: This part is quite dangerous, if there's no update() or there's an
+    // error
+    //       in the script then it will cause a crash
+    // sol::function p_update = m_lua.lua["update"];
+    // p_update(dt);
 }
 
 void Client::render(int width, int height)
@@ -384,7 +393,7 @@ void Client::render(int width, int height)
     m_voxelTextures.bind();
 
     bool isPlayerInWater =
-        m_chunks.manager.getVoxel(toVoxelPosition(mp_player->position)) ==
+        m_chunks.manager.getBlock(toBlockPosition(mp_player->position)) ==
         m_voxelData.getVoxelId(CommonVoxel::Water);
     auto result = m_chunkRenderer.renderChunks(mp_player->position, m_frustum,
                                                playerProjectionView, isPlayerInWater);
@@ -392,16 +401,16 @@ void Client::render(int width, int height)
     m_debugStats.renderedChunks = result.chunksRendered;
 
     // Render selection box
-    if (m_voxelSelected) {
+    if (m_blockSelected) {
         glCheck(glEnable(GL_BLEND));
         glCheck(glEnable(GL_LINE_SMOOTH));
         glCheck(glLineWidth(2.0));
         m_selectionShader.program.bind();
         glm::mat4 modelMatrix{1.0};
         float size = 1.005f;
-        translateMatrix(modelMatrix, {m_currentSelectedVoxelPos.x - (size - 1) / 2,
-                                      m_currentSelectedVoxelPos.y - (size - 1) / 2,
-                                      m_currentSelectedVoxelPos.z - (size - 1) / 2});
+        translateMatrix(modelMatrix, {m_currentSelectedBlockPos.x - (size - 1) / 2,
+                                      m_currentSelectedBlockPos.y - (size - 1) / 2,
+                                      m_currentSelectedBlockPos.z - (size - 1) / 2});
         scaleMatrix(modelMatrix, size);
         gl::loadUniform(m_selectionShader.modelLocation, modelMatrix);
         gl::loadUniform(m_selectionShader.projectionViewLocation, playerProjectionView);
@@ -410,11 +419,11 @@ void Client::render(int width, int height)
     }
 
     // GUI
-    m_guiMaster.render();
+    m_gui.render(width, height);
 
     // Debug stats
     if (m_shouldRenderDebugInfo) {
-        m_debugStatsText->show();
+
         if (m_debugTextUpdateTimer.getElapsedTime() > sf::milliseconds(100)) {
             m_debugTextUpdateTimer.restart();
 
@@ -426,7 +435,7 @@ void Client::render(int width, int height)
             DebugStats& d = m_debugStats;
             glm::vec3& p = mp_player->position;
             glm::vec3& r = mp_player->rotation;
-            auto bp = toLocalVoxelPosition(p.x, p.y, p.z);
+            auto bp = toLocalBlockPosition(p.x, p.y, p.z);
             auto cp = toChunkPosition(p.x, p.y, p.z);
 
             std::ostringstream debugText;
@@ -443,11 +452,9 @@ void Client::render(int width, int height)
             debugText << "In Chunk? " << (m_chunks.manager.hasChunk(cp) ? "Yes" : "No")
                       << '\n';
 
-            m_debugStatsText->setText(debugText.str());
+            m_debugText.setText(debugText.str());
         }
-    }
-    else {
-        m_debugStatsText->hide();
+        m_gui.renderText(m_debugText);
     }
 }
 

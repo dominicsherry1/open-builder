@@ -4,21 +4,21 @@
 #include <ctime>
 #include <random>
 
-TEST_CASE("Chunks can get and set voxels")
+TEST_CASE("Chunks can get and set blocks")
 {
-    voxel_t voxel = 10;
+    block_t block = 10;
 
-    SECTION("Chunk voxels can be set and recieved correctly")
+    SECTION("Chunk blocks can be set and recieved correctly")
     {
         ChunkManager manager;
         Chunk& chunk = manager.addChunk({0, 0, 0});
-        VoxelPosition voxelPosition(1, 2, 3);
+        BlockPosition blockPosition(1, 2, 3);
 
-        chunk.qSetVoxel(voxelPosition, voxel);
-        REQUIRE(chunk.qGetVoxel(voxelPosition) == voxel);
+        chunk.qSetBlock(blockPosition, block);
+        REQUIRE(chunk.qGetBlock(blockPosition) == block);
     }
 
-    SECTION("The chunk is able to get neighbour voxels")
+    SECTION("The chunk is able to get neighbour blocks")
     {
         ChunkPosition left(-1, 0, 0);
         ChunkPosition right(0, 0, 0);
@@ -27,27 +27,27 @@ TEST_CASE("Chunks can get and set voxels")
         Chunk& leftChunk = manager.addChunk(left);
         Chunk& rightChunk = manager.addChunk(right);
 
-        VoxelPosition setPosition;
-        VoxelPosition correctedPosition;
+        BlockPosition setPosition;
+        BlockPosition correctedPosition;
 
         setPosition = {-5, 5, 2};
         correctedPosition = {CHUNK_SIZE - 5, 5, 2};
-        manager.setVoxel(setPosition, voxel);
-        REQUIRE(rightChunk.getVoxel(setPosition) == voxel);
-        REQUIRE(leftChunk.qGetVoxel(correctedPosition) == voxel);
-        REQUIRE(leftChunk.getVoxel(correctedPosition) == voxel);
-        REQUIRE(manager.getVoxel(setPosition) == voxel);
+        manager.setBlock(setPosition, block);
+        REQUIRE(rightChunk.getBlock(setPosition) == block);
+        REQUIRE(leftChunk.qGetBlock(correctedPosition) == block);
+        REQUIRE(leftChunk.getBlock(correctedPosition) == block);
+        REQUIRE(manager.getBlock(setPosition) == block);
 
         setPosition = {5, 10, 3};
         correctedPosition = {CHUNK_SIZE + 5, 10, 3};
-        manager.setVoxel(setPosition, voxel);
-        REQUIRE(leftChunk.getVoxel(correctedPosition) == voxel);
-        REQUIRE(rightChunk.qGetVoxel(setPosition) == voxel);
-        REQUIRE(rightChunk.getVoxel(setPosition) == voxel);
-        REQUIRE(manager.getVoxel(setPosition) == voxel);
+        manager.setBlock(setPosition, block);
+        REQUIRE(leftChunk.getBlock(correctedPosition) == block);
+        REQUIRE(rightChunk.qGetBlock(setPosition) == block);
+        REQUIRE(rightChunk.getBlock(setPosition) == block);
+        REQUIRE(manager.getBlock(setPosition) == block);
     }
 
-    SECTION("The chunk is able to set neighbour voxels")
+    SECTION("The chunk is able to set neighbour blocks")
     {
         ChunkPosition left(-1, 0, 0);
         ChunkPosition right(0, 0, 0);
@@ -58,23 +58,23 @@ TEST_CASE("Chunks can get and set voxels")
         Chunk& rightChunk = manager.addChunk(right);
         Chunk& upChunk = manager.addChunk(up);
 
-        VoxelPosition setPosition;
-        VoxelPosition correctedPosition;
+        BlockPosition setPosition;
+        BlockPosition correctedPosition;
 
         setPosition = {-5, 5, 2};
         correctedPosition = {CHUNK_SIZE - 5, 5, 2};
-        rightChunk.setVoxel(setPosition, voxel);
-        REQUIRE(leftChunk.qGetVoxel(correctedPosition) == voxel);
-        REQUIRE(leftChunk.getVoxel(correctedPosition) == voxel);
+        rightChunk.setBlock(setPosition, block);
+        REQUIRE(leftChunk.qGetBlock(correctedPosition) == block);
+        REQUIRE(leftChunk.getBlock(correctedPosition) == block);
 
         setPosition = {5, 33, 3};
         correctedPosition = {5, 1, 3};
-        rightChunk.setVoxel(setPosition, voxel);
-        REQUIRE(upChunk.getVoxel(correctedPosition) == voxel);
-        REQUIRE(upChunk.qGetVoxel(correctedPosition) == voxel);
+        rightChunk.setBlock(setPosition, block);
+        REQUIRE(upChunk.getBlock(correctedPosition) == block);
+        REQUIRE(upChunk.qGetBlock(correctedPosition) == block);
     }
 
-    SECTION("Setting an out of bound voxel will create a chunk at that position")
+    SECTION("Setting an out of bound block will create a chunk at that position")
     {
         ChunkManager manager;
         ChunkPosition bottom(0, 0, 0);
@@ -82,18 +82,18 @@ TEST_CASE("Chunks can get and set voxels")
 
         Chunk& chunk = manager.addChunk(bottom);
 
-        VoxelPosition setPosition;
-        VoxelPosition correctedPosition;
+        BlockPosition setPosition;
+        BlockPosition correctedPosition;
         setPosition = {5, 33, 3};
         correctedPosition = {5, 1, 3};
-        chunk.setVoxel(setPosition, voxel);
+        chunk.setBlock(setPosition, block);
 
         REQUIRE(manager.hasChunk(up));
 
         if (manager.hasChunk(up)) {
             const Chunk& newChunk = manager.getChunk(up);
-            REQUIRE(newChunk.getVoxel(correctedPosition) == voxel);
-            REQUIRE(newChunk.qGetVoxel(correctedPosition) == voxel);
+            REQUIRE(newChunk.getBlock(correctedPosition) == block);
+            REQUIRE(newChunk.qGetBlock(correctedPosition) == block);
         }
     }
 }
@@ -101,76 +101,76 @@ TEST_CASE("Chunks can get and set voxels")
 TEST_CASE("Chunk can be compressed and uncompressed")
 {
 
-    SECTION("The chunk can compress voxels")
+    SECTION("The chunk can compress blocks")
     {
         ChunkManager manager;
         Chunk& chunk = manager.addChunk({0, 0, 0});
 
-        SECTION("By default, a chunk is just air, so there is just one voxel type")
+        SECTION("By default, a chunk is just air, so there is just one block type")
         {
-            auto compressed = compressVoxelData(chunk.voxels);
+            auto compressed = compressBlockData(chunk.blocks);
             REQUIRE(compressed.size() == 1);
-            REQUIRE(compressed[0].second == chunk.voxels.size());
+            REQUIRE(compressed[0].second == chunk.blocks.size());
         }
 
-        SECTION("Two voxel types")
+        SECTION("Two block types")
         {
-            chunk.qSetVoxel({0, 0, 0}, 1);
-            auto compressed = compressVoxelData(chunk.voxels);
+            chunk.qSetBlock({0, 0, 0}, 1);
+            auto compressed = compressBlockData(chunk.blocks);
             REQUIRE(compressed.size() == 2);
             REQUIRE(compressed[0].second == 1);
-            REQUIRE(compressed[1].second == chunk.voxels.size() - 1);
+            REQUIRE(compressed[1].second == chunk.blocks.size() - 1);
         }
 
-        SECTION("N voxel types")
+        SECTION("N block types")
         {
             std::mt19937 rng;
             rng.seed(std::time(nullptr));
-            std::uniform_int_distribution<> voxelTypeCount(20, 200);
+            std::uniform_int_distribution<> blockTypeCount(20, 200);
 
-            int n = voxelTypeCount(rng);
+            int n = blockTypeCount(rng);
 
-            std::weibull_distribution<> voxelType(0, n);
+            std::weibull_distribution<> blockType(0, n);
 
-            // Ensure all voxels are there in the chunk (to avoid flakiness due
+            // Ensure all blocks are there in the chunk (to avoid flakiness due
             // to random)
             for (int i = 0; i < n; i++) {
-                chunk.voxels[i] = i;
+                chunk.blocks[i] = i;
             }
 
-            for (unsigned i = n + 1; i < chunk.voxels.size(); i++) {
-                chunk.voxels[i] = voxelType(rng);
+            for (unsigned i = n + 1; i < chunk.blocks.size(); i++) {
+                chunk.blocks[i] = blockType(rng);
             }
 
-            auto compressed = compressVoxelData(chunk.voxels);
+            auto compressed = compressBlockData(chunk.blocks);
             // yeah no clue how to test this lol
         }
     }
 
     SECTION("Chunks can correctly de-compress chunks")
     {
-        voxel_t voxelA = 5;
-        voxel_t voxelB = 45;
-        voxel_t voxelC = 123;
+        block_t blockA = 5;
+        block_t blockB = 45;
+        block_t blockC = 123;
 
-        VoxelPosition positionA(0, 20, 12);
-        VoxelPosition positionB(12, 2, 4);
-        VoxelPosition positionC(1, 30, 8);
+        BlockPosition positionA(0, 20, 12);
+        BlockPosition positionB(12, 2, 4);
+        BlockPosition positionC(1, 30, 8);
 
         ChunkManager manager;
         Chunk& chunk = manager.addChunk({0, 0, 0});
 
-        chunk.qSetVoxel(positionA, voxelA);
-        chunk.qSetVoxel(positionB, voxelB);
-        chunk.qSetVoxel(positionC, voxelC);
+        chunk.qSetBlock(positionA, blockA);
+        chunk.qSetBlock(positionB, blockB);
+        chunk.qSetBlock(positionC, blockC);
 
-        auto compressed = compressVoxelData(chunk.voxels);
+        auto compressed = compressBlockData(chunk.blocks);
 
         Chunk& decompressor = manager.addChunk({1, 1, 1});
-        decompressor.voxels = decompressVoxelData(compressed);
+        decompressor.blocks = decompressBlockData(compressed);
 
-        REQUIRE(decompressor.getVoxel(positionA) == voxelA);
-        REQUIRE(decompressor.getVoxel(positionB) == voxelB);
-        REQUIRE(decompressor.getVoxel(positionC) == voxelC);
+        REQUIRE(decompressor.getBlock(positionA) == blockA);
+        REQUIRE(decompressor.getBlock(positionB) == blockB);
+        REQUIRE(decompressor.getBlock(positionC) == blockC);
     }
 }

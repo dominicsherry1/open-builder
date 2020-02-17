@@ -1,8 +1,8 @@
-#include "gui_text.h"
+#include "text.h"
 
-#include "../gl/font.h"
+#include "../gl/shader.h"
 #include "../maths.h"
-#include "gui_shader.h"
+#include <iostream>
 
 namespace {
 struct Mesh {
@@ -77,96 +77,130 @@ void addCharacter(Mesh& mesh, const sf::Glyph& glyph, float size,
 
 } // namespace
 
-GuiText::GuiText(const gl::Font& font)
-    : mp_font(&font)
+void Font::init(const std::string& fontFile, unsigned bitmapScale)
 {
+    m_bitmapScale = bitmapScale;
+    if (!m_font.loadFromFile(fontFile)) {
+        throw std::runtime_error("Unable to load font from file...");
+    }
+    for (auto character : m_charSet) {
+        m_font.getGlyph(character, bitmapScale, false);
+    }
+    const sf::Texture& temp = m_font.getTexture(bitmapScale);
+    sf::Image bitmap = temp.copyToImage();
+    assert(bitmap.getSize().x == bitmap.getSize().y);
+    m_imageSize = bitmap.getSize().x;
+    m_texture.create(bitmap);
 }
 
-void GuiText::setFont(const gl::Font& font)
+const sf::Glyph& Font::getGlyph(char character) const
 {
-    mp_font = &font;
+    return m_font.getGlyph(character, m_bitmapScale, false);
 }
 
-void GuiText::setPosition(const GuiDimension& position)
+float Font::getKerning(char before, char next) const
+{
+    return m_font.getKerning(before, next, m_bitmapScale);
+}
+
+float Font::getLineHeight() const
+{
+    return m_font.getLineSpacing(m_bitmapScale);
+}
+
+void Font::bindTexture() const
+{
+    m_texture.bind();
+}
+
+unsigned Font::getTextureAtlasSize() const
+{
+    return m_imageSize;
+}
+
+unsigned Font::getBitmapSize() const
+{
+    return m_bitmapScale;
+}
+
+//  ===============================
+//      Text Class Implemenation
+//
+void Text::setFont(const Font& font)
+{
+    m_font = &font;
+}
+
+void Text::setText(const std::string& string)
+{
+    m_text = string;
+    m_needsUpdate = true;
+}
+
+void Text::setCharSize(float size)
+{
+    m_scale = size;
+}
+
+void Text::setPosition(const glm::vec3& position)
 {
     m_position = position;
-    m_isGeometryUpdateNeeded = true;
 }
 
-void GuiText::setFontSize(float size)
+void Text::render(const gl::UniformLocation& location)
 {
-    m_fontSize = size;
-    m_isGeometryUpdateNeeded = true;
-}
-
-void GuiText::setText(const std::string& text)
-{
-    // todo maybe std::move, need to check if possible
-    m_text = text;
-    m_isGeometryUpdateNeeded = true;
-}
-
-void GuiText::render(GuiShader& shader, const glm::vec2& viewport)
-{
-    if (!mp_font || m_isHidden) {
+    glCullFace(GL_FRONT);
+    glEnable(GL_BLEND);
+    m_font->bindTexture();
+    if (!m_font) {
         return;
     }
-    if (m_isGeometryUpdateNeeded) {
-        updateGeometry();
+    if (m_needsUpdate) {
+        createGeometry();
     }
     glm::mat4 modelMatrix{1.0f};
-    float scale = m_fontSize / mp_font->getBitmapSize();
+    float scale = m_scale / m_font->getBitmapSize();
 
-    auto transform = m_position.apply(viewport);
-
-    translateMatrix(modelMatrix, {transform.x, transform.y, 0.0f});
+    translateMatrix(modelMatrix, m_position);
     rotateMatrix(modelMatrix, {180.0f, 0.0f, 0.0f});
     scaleMatrix(modelMatrix, scale);
 
-    shader.updateTransform(modelMatrix);
+    gl::loadUniform(location, modelMatrix);
 
-    m_textQuads.getDrawable().bindAndDraw();
+    m_vao.getDrawable().bindAndDraw();
+    glCullFace(GL_BACK);
+    glDisable(GL_BLEND);
 }
 
-void GuiText::hide()
+void Text::createGeometry()
 {
-    m_isHidden = true;
-}
-
-void GuiText::show()
-{
-    m_isHidden = false;
-}
-
-void GuiText::updateGeometry()
-{
-    m_textQuads.destroy();
+    m_vao.destroy();
     Mesh mesh;
-    m_isGeometryUpdateNeeded = false;
+    m_needsUpdate = false;
 
     sf::Vector2f pos{0, 0};
     char previous = 0;
     for (auto character : m_text) {
-        pos.x += mp_font->getKerning(previous, character);
+        pos.x += m_font->getKerning(previous, character);
         previous = character;
 
         // New line handler
         if (character == '\n') {
-            pos.y += mp_font->getLineHeight();
+            pos.y += m_font->getLineHeight();
             pos.x = 0;
             previous = 0;
             continue;
         }
 
         // Create a single quad for the char
-        auto& glyph = mp_font->getGlyph(character);
-        addCharacter(mesh, glyph, mp_font->getTextureAtlasSize(), pos);
+        auto& glyph = m_font->getGlyph(character);
+        addCharacter(mesh, glyph, m_font->getTextureAtlasSize(), pos);
         pos.x += glyph.advance;
     }
 
-    m_textQuads.create();
-    m_textQuads.bind();
-    m_textQuads.addVertexBuffer(2, mesh.vertices);
-    m_textQuads.addVertexBuffer(2, mesh.textureCoords);
-    m_textQuads.addIndexBuffer(mesh.indices);
+    m_vao.create();
+    m_vao.bind();
+    m_vao.addVertexBuffer(2, mesh.vertices);
+    m_vao.addVertexBuffer(2, mesh.textureCoords);
+    m_vao.addIndexBuffer(mesh.indices);
 }
