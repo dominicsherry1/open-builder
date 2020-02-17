@@ -128,6 +128,10 @@ class Client final : public NetworkHost {
     Entity* mp_player = nullptr;
     Entity m_externalCamera;
 
+    float m_playerSpeed = 5;
+    float m_playerSpeedBoost = 10;
+    bool m_playerSpeedBoostActive = false;
+
     struct {
         ChunkManager manager;
         std::vector<ChunkPosition> updates;

@@ -120,31 +120,31 @@ void Client::handleInput(const sf::Window& window, const Keyboard& keyboard)
     }
 
     // Handle keyboard input
-    float PLAYER_SPEED = 5.0f;
-    if (keyboard.isKeyDown(sf::Keyboard::LControl)) {
-        PLAYER_SPEED *= 10;
+    if (keyboard.isKeyDown(sf::Keyboard::LControl) && m_playerSpeedBoostActive == false) {
+        m_playerSpeedBoostActive = true;
+        m_playerSpeed *= m_playerSpeedBoost;
     }
 
     // Handle mouse input
     auto& rotation = mp_player->rotation;
     auto& velocity = mp_player->velocity;
     if (keyboard.isKeyDown(sf::Keyboard::W)) {
-        velocity += forwardsVector(rotation) * PLAYER_SPEED;
+        velocity += forwardsVector(rotation) * m_playerSpeed;
     }
     else if (keyboard.isKeyDown(sf::Keyboard::S)) {
-        velocity += backwardsVector(rotation) * PLAYER_SPEED;
+        velocity += backwardsVector(rotation) * m_playerSpeed;
     }
     if (keyboard.isKeyDown(sf::Keyboard::A)) {
-        velocity += leftVector(rotation) * PLAYER_SPEED;
+        velocity += leftVector(rotation) * m_playerSpeed;
     }
     else if (keyboard.isKeyDown(sf::Keyboard::D)) {
-        velocity += rightVector(rotation) * PLAYER_SPEED;
+        velocity += rightVector(rotation) * m_playerSpeed;
     }
     if (keyboard.isKeyDown(sf::Keyboard::Space)) {
-        velocity.y += PLAYER_SPEED * 2;
+        velocity.y += m_playerSpeed * 2;
     }
     else if (keyboard.isKeyDown(sf::Keyboard::LShift)) {
-        velocity.y -= PLAYER_SPEED * 2;
+        velocity.y -= m_playerSpeed * 2;
     }
     if (rotation.x < -80.0f) {
         rotation.x = -79.9f;
@@ -191,8 +191,12 @@ void Client::onMouseRelease(sf::Mouse::Button button, [[maybe_unused]] int x,
 void Client::onKeyRelease(sf::Keyboard::Key key)
 {
     switch (key) {
-        case sf::Keyboard::L:
-            m_isMouseLocked = !m_isMouseLocked;
+        case sf::Keyboard::LControl:
+            m_playerSpeed /= m_playerSpeedBoost;
+            m_playerSpeedBoostActive = false;
+            break;
+
+        case sf::Keyboard::L : m_isMouseLocked = !m_isMouseLocked;
             break;
 
         case sf::Keyboard::P:
@@ -206,6 +210,11 @@ void Client::onKeyRelease(sf::Keyboard::Key key)
         case sf::Keyboard::F3:
             m_shouldRenderDebugInfo = !m_shouldRenderDebugInfo;
             break;
+        case sf::Keyboard::Equal:
+            m_playerSpeed *= 1.5;
+            break;
+        case sf::Keyboard::Hyphen:
+            m_playerSpeed /= 1.5;
 
         default:
             break;
@@ -436,6 +445,7 @@ void Client::render(int width, int height)
             debugText << "Chunk VRAM: " << m_debugStats.bytesRendered << "Mb of "
                       << buffSize << "Mb drawn\n";
             debugText << "Position: " << p << '\n';
+            debugText << "Velocity: " << m_playerSpeed << " bps\n";
             debugText << "Chunk Position: " << cp << '\n';
             debugText << "Local Position: " << bp << '\n';
             debugText << "Rotation: " << r << '\n';
